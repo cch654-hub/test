@@ -1,50 +1,1099 @@
-<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>定期存款管理</title><style>
-:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#10141c;color:#edf2fa;font:15px/1.6 system-ui,sans-serif}main{max-width:1080px;margin:auto;padding:20px}h1{font-size:25px}h2{font-size:19px}section,.stat{background:#1a2230;border:1px solid #334057;border-radius:14px;padding:16px;margin:16px 0}.row,.actions{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}button,input,select,textarea{font:inherit;border:1px solid #45536b;border-radius:8px;background:#101824;color:#edf2fa;padding:9px}button{cursor:pointer;background:#28354a}.primary{background:#f3c96b;color:#10141c}input:not([type=checkbox]),textarea,select{width:100%}input[type=checkbox]{width:20px;height:20px;accent-color:#8addb4}.muted,small{color:#a6b2c5}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.stat{margin:0}.stat strong{display:block;color:#f3c96b;font-size:22px}.week,.calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}.week{text-align:center;color:#a6b2c5;margin:16px 0 8px}.day{min-height:100px;display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding:7px}.blank{opacity:.25}.today{border:2px solid #f3c96b}.selected{background:#304059}.mark{font-size:12px;color:#f3c96b;overflow-wrap:anywhere}.red{color:#ff9984}.green{color:#8addb4}.entry{padding:14px 0;border-bottom:1px solid #334057}.closed{opacity:.65}.check{display:flex;align-items:center;gap:8px}dialog{background:#1a2230;color:#edf2fa;border:1px solid #45536b;border-radius:14px;width:min(640px,94vw);max-height:92vh}dialog::backdrop{background:#000a}.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:15px 0}.field{display:flex;flex-direction:column;gap:5px}.wide{grid-column:1/-1}[hidden]{display:none!important}.preview{background:#101824;padding:12px;border-radius:8px;color:#f3c96b}.empty{color:#a6b2c5;padding:16px 0}#message{background:#482c23;padding:12px;border-radius:8px}.filters{display:flex;gap:10px;margin-top:12px}.filters input{flex:1}.filters select{width:auto}@media(max-width:600px){main{padding:12px}.day{min-height:90px;padding:4px}.mark{font-size:11px}.stat{padding:9px;font-size:12px}.stat strong{font-size:18px}section{padding:12px}}
-.dateparts{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:4px}.dateparts>*{min-width:0;padding:8px 4px}button:disabled{opacity:.5;cursor:not-allowed}#dueDialog{max-width:650px}#dueItems{max-height:55vh;overflow:auto}</style><main><div class="row"><div><h1>定期存款管理</h1><p class="muted">定期到期提醒 · Google Sheets 手動同步</p></div><button id="add" class="primary">＋ 新增定期</button></div><p id="message" hidden role="alert"></p><section><h2>Google Sheets 同步</h2><p id="cloudStatus" role="status">等待讀取</p><div class="actions"><button id="cloudRead">重新讀取雲端</button><button id="cloudUse" disabled>以雲端取代本地</button><button id="cloudUpload">上傳至 Google Sheets</button><button id="showDue">查看到期提醒</button></div><p class="muted"><small>只處理 fixed_deposits。修改先存本地，確認上傳才取代雲端定期清單。請先備份，避免多裝置同時上傳。</small></p></section><div class="stats"><div class="stat">所選月份定期到期<strong id="count"></strong></div><div class="stat">所選月份到期本金<div id="totals"></div></div><div class="stat">已到期未處理<strong id="pendingCount"></strong></div></div><section><div class="row"><h2 id="month"></h2><div class="actions"><button id="prev">‹</button><button id="today">本月</button><button id="next">›</button></div></div><div class="week"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div><div class="calendar" id="calendar"></div><p class="muted"><small>$ 定期到期：未處理；橙紅色：已到期；✓ 定期到期：已處理。點日期查看記錄。</small></p><div id="dayList"></div></section><section><h2>已到期・待處理</h2><div id="pending"></div></section><section><div class="row"><h2>全部定期</h2><span id="allCount"></span></div><div class="filters"><input id="search" placeholder="搜尋銀行、貨幣、地區、備註"><select id="filter"><option value="all">全部狀態</option><option value="open">未處理</option><option value="done">已處理</option></select></div><div id="all"></div></section><section><h2>本地備份</h2><p class="muted">資料先保存在目前瀏覽器，確認上傳後才同步。請定期備份；更換装置、瀏覽器、檔案位置或清除網站資料可能無法讀取原資料。JSON 備份包含未加密的財務資料。</p><div class="actions"><button id="export">匯出 JSON 備份</button><button id="import">匯入備份</button><input type="file" id="file" accept=".json,application/json" hidden></div><p class="muted"><small>只有頁內提示，不會發送手機背景通知，雲端上傳僅修改定期資料，不修改股票。</small></p></section></main>
-<dialog id="editor"><form id="form"><div class="row"><h2 id="formTitle"></h2><button id="close" type="button">關閉</button></div><div class="fields"><label class="field">銀行 *<select id="bank"><option>大豐銀行</option><option>華僑銀行</option><option>滙業銀行</option><option>中國工商銀行</option><option>澳門國際銀行</option><option>澳門商業銀行</option><option>澳門華人銀行</option><option>立橋銀行</option><option>大西洋銀行</option><option>螞蟻銀行</option><option>澳門發展銀行</option><option>中國銀行</option><option>其他地區銀行</option></select></label><label class="field">貨幣 *<select id="currency"><option>HKD</option><option>USD</option><option>CNY</option><option>EUR</option><option>GBP</option><option>JPY</option><option>AUD</option><option>CAD</option><option>SGD</option><option>TWD</option></select></label><label class="field wide" id="otherField" hidden>其他地區銀行名稱 *<input id="otherBank" maxlength="100" placeholder="請輸入銀行名稱"></label><label class="field">本金 *<input type="number" id="amount" required min="0.01" step="0.01"></label><label class="field">年利率 (%) *<input type="number" id="rate" required min="0" max="100" step="any" placeholder="3 代表 3%"></label><div class="field">開始日期 *<div class="dateparts"><input id="startY" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="年" required aria-label="開始日期年"><select id="startM" required aria-label="開始日期月"><option value="">月</option><option value="01">1月</option><option value="02">2月</option><option value="03">3月</option><option value="04">4月</option><option value="05">5月</option><option value="06">6月</option><option value="07">7月</option><option value="08">8月</option><option value="09">9月</option><option value="10">10月</option><option value="11">11月</option><option value="12">12月</option></select><select id="startD" required aria-label="開始日期日"><option value="">日</option></select></div><input id="start" type="hidden"></div><div class="field">到期日期 *<div class="dateparts"><input id="endY" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="年" required aria-label="到期日期年"><select id="endM" required aria-label="到期日期月"><option value="">月</option><option value="01">1月</option><option value="02">2月</option><option value="03">3月</option><option value="04">4月</option><option value="05">5月</option><option value="06">6月</option><option value="07">7月</option><option value="08">8月</option><option value="09">9月</option><option value="10">10月</option><option value="11">11月</option><option value="12">12月</option></select><select id="endD" required aria-label="到期日期日"><option value="">日</option></select></div><input id="end" type="hidden"></div><label class="field">地區<input id="region" maxlength="100" value="澳門"></label><label class="check"><input type="checkbox" id="handled">已處理</label><label class="field wide">備註<textarea id="notes" maxlength="2000"></textarea></label><div class="preview wide" id="preview"></div></div><p class="muted"><small>利息＝本金 × 年利率 ×（到期日 − 開始日）÷ 365；不額外加一天。</small></p><div class="actions"><button id="cancel" type="button">取消</button><button class="primary" type="submit">儲存至本地</button></div></form></dialog>
-<dialog id="dueDialog" aria-labelledby="dueTitle"><h2 id="dueTitle">定期到期提醒</h2><p id="dueSummary"></p><p class="muted" id="dueSource"></p><div id="dueItems"></div><p class="muted"><small>關閉不代表已處理。勾選後按保存只寫本地，需另按上傳才同步其他裝置。</small></p><div class="actions"><button id="dueLater">稍後處理</button><button id="dueSave" class="primary">保存處理狀態</button></div></dialog><script>'use strict';
-let revision=0;
-const BANKS=["大豐銀行", "華僑銀行", "滙業銀行", "中國工商銀行", "澳門國際銀行", "澳門商業銀行", "澳門華人銀行", "立橋銀行", "大西洋銀行", "螞蟻銀行", "澳門發展銀行", "中國銀行", "其他地區銀行"],KEY='fixed_deposits_local_v1',$=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),money=n=>new Intl.NumberFormat('zh-HK',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
-function today(){let d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
-function dt(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return NaN;let[y,m,d]=s.split('-').map(Number),n=Date.UTC(y,m-1,d),v=new Date(n);return y>=1900&&y<=9999&&v.getUTCFullYear()===y&&v.getUTCMonth()===m-1&&v.getUTCDate()===d?n:NaN}
-const days=(a,b)=>(dt(b)-dt(a))/86400000,interest=r=>r.amount*r.rate*days(r.startDate,r.endDate)/365,name=r=>r.bank==='其他地區銀行'?(r.otherBank||r.bank):r.bank;
-function valid(r){return r&&typeof r.id==='string'&&r.id&&typeof r.bank==='string'&&r.bank.trim()&&(r.bank!=='其他地區銀行'||typeof r.otherBank==='string'&&r.otherBank.trim())&&typeof r.currency==='string'&&/^[A-Z]{3}$/.test(r.currency)&&Number.isFinite(r.amount)&&r.amount>0&&Number.isFinite(r.rate)&&r.rate>=0&&r.rate<=1&&Number.isFinite(days(r.startDate,r.endDate))&&days(r.startDate,r.endDate)>=0&&typeof r.handled==='boolean'&&Number.isFinite(interest(r))}
-function validList(a){return Array.isArray(a)&&a.every(valid)&&new Set(a.map(r=>r.id)).size===a.length}
-function msg(s){$('message').textContent=s;$('message').hidden=!s}
-let records=[],blocked=false,view=new Date(new Date().getFullYear(),new Date().getMonth(),1),selected=today(),editing=null;
-try{const raw=localStorage.getItem(KEY);if(raw){records=JSON.parse(raw);if(!validList(records))throw Error('格式不正確')}}catch(e){records=[];blocked=true;msg('無法讀取本地資料；為避免覆寫，已暫停儲存。請匯入有效備份或檢查儲存權限。'+e.message)}
-function commit(a){if(blocked){msg('資料尚未成功讀取，請先匯入有效備份。');return false}try{localStorage.setItem(KEY,JSON.stringify(a));records=a;revision++;msg('');render();updateCloud();scheduleDue();return true}catch(e){msg('儲存失敗，修改未保存：'+e.message);return false}}
-function entry(r){let n=days(today(),r.endDate),state=r.handled?'✓ 已處理':n<=0?'到期待處理':'未到期';return `<article class="entry ${r.handled?'closed':''}"><div class="row"><span>${esc(name(r))} · ${esc(r.currency)} ${money(r.amount)}</span><span class="${r.handled?'green':n<=0?'red':'mark'}">${state}</span></div><p class="muted">${esc(r.startDate)} → ${esc(r.endDate)} · ${n>0?'距到期 '+n+' 天':n===0?'今日到期':'已到期 '+(-n)+' 天'}<br>年利率 ${Number((r.rate*100).toFixed(6))}% · 預計利息 ${esc(r.currency)} ${money(interest(r))}${r.region?'<br>地區：'+esc(r.region):''}${r.notes?'<br>備註：'+esc(r.notes):''}</p><div class="row"><label class="check"><input type="checkbox" data-check="${esc(r.id)}" ${r.handled?'checked':''}>已處理</label><div class="actions"><button data-edit="${esc(r.id)}">編輯</button><button class="red" data-delete="${esc(r.id)}">刪除</button></div></div></article>`}
-function listing(a){return a.length?[...a].sort((a,b)=>a.endDate.localeCompare(b.endDate)).map(entry).join(''):'<div class="empty">沒有符合條件的定期記錄。</div>'}
-function render(){let y=view.getFullYear(),m=view.getMonth(),prefix=`${y}-${String(m+1).padStart(2,'0')}`,rs=records.filter(r=>r.endDate.startsWith(prefix)),pending=records.filter(r=>!r.handled&&r.endDate<=today());$('month').textContent=`${y} 年 ${m+1} 月`;$('count').textContent=rs.length+' 筆';$('pendingCount').textContent=pending.length+' 筆';let totals={};rs.forEach(r=>totals[r.currency]=(totals[r.currency]||0)+r.amount);$('totals').innerHTML=Object.keys(totals).sort().map(c=>`<div class="mark">${esc(c)} ${money(totals[c])}</div>`).join('')||'—';let out='',offset=new Date(y,m,1).getDay(),n=new Date(y,m+1,0).getDate();for(let i=0;i<offset;i++)out+='<div class="day blank"></div>';for(let d=1;d<=n;d++){let day=`${prefix}-${String(d).padStart(2,'0')}`,a=rs.filter(r=>r.endDate===day),open=a.filter(r=>!r.handled).length,done=a.length-open;out+=`<button class="day ${day===today()?'today':''} ${day===selected?'selected':''}" data-day="${day}" aria-label="${day} 定期到期 ${a.length}筆"><span>${d}</span>${open?`<span class="mark ${day<=today()?'red':''}">$ 定期到期 ${open}筆</span>`:''}${done?`<span class="mark green">✓ 定期到期 ${done}筆</span>`:''}</button>`}for(let i=(offset+n)%7;i>0&&i<7;i++)out+='<div class="day blank"></div>';$('calendar').innerHTML=out;$('dayList').innerHTML=selected?.startsWith(prefix)?`<h2>${esc(selected)}・定期到期</h2>`+listing(records.filter(r=>r.endDate===selected)):'';$('pending').innerHTML=listing(pending);let q=$('search').value.trim().toLowerCase(),f=$('filter').value;$('all').innerHTML=listing(records.filter(r=>(f==='all'||(f==='done'?r.handled:!r.handled))&&[name(r),r.currency,r.region,r.notes].join(' ').toLowerCase().includes(q)));$('allCount').textContent=records.length+' 筆';$('add').disabled=blocked}
-function bankFields(){let other=$('bank').value==='其他地區銀行';$('otherField').hidden=!other;$('otherBank').required=other}
-function preview(){syncDates();bankFields();let n=days($('start').value,$('end').value),a=Number($('amount').value),rate=Number($('rate').value)/100,v=a*rate*n/365;$('endD').setCustomValidity(n<0?'到期日期不能早於開始日期。':'');$('preview').textContent=$('amount').value&&$('rate').value&&a>0&&rate>=0&&rate<=1&&n>=0&&Number.isFinite(v)?`存款天數 ${n} 天 · 預計利息 ${$('currency').value} ${money(v)} · 本息合計 ${money(a+v)}`:'填寫本金、利率及日期後顯示預計利息。'}
-function open(id=null){editing=id;let r=records.find(r=>r.id===id);$('form').reset();$('formTitle').textContent=r?'編輯定期':'新增定期';let known=r&&BANKS.includes(r.bank);$('bank').value=r?(known?r.bank:'其他地區銀行'):BANKS[0];$('otherBank').value=r?(known?(r.otherBank||''):r.bank):'';if(r&&!Array.from($('currency').options).some(o=>o.value===r.currency))$('currency').add(new Option(r.currency,r.currency));$('currency').value=r?.currency||'HKD';$('amount').value=r?.amount??'';$('rate').value=r?Number((r.rate*100).toFixed(10)):'';$('start').value=r?.startDate||today();$('end').value=r?.endDate||'';$('region').value=r?(r.region||''):'澳門';$('notes').value=r?.notes||'';$('handled').checked=r?.handled||false;setDateParts('start',$('start').value);setDateParts('end',$('end').value);preview();$('editor').showModal()}
-$('add').onclick=()=>open();$('close').onclick=$('cancel').onclick=()=>$('editor').close();$('form').oninput=preview;$('form').onchange=preview;$('bank').onchange=preview;
-$('form').onsubmit=e=>{e.preventDefault();preview();if(!$('form').reportValidity())return;let old=records.find(r=>r.id===editing),now=new Date().toISOString(),h=$('handled').checked,r={id:old?.id||(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)),bank:$('bank').value,otherBank:$('bank').value==='其他地區銀行'?$('otherBank').value.trim():'',currency:$('currency').value,amount:Number($('amount').value),rate:Number($('rate').value)/100,startDate:$('start').value,endDate:$('end').value,region:$('region').value.trim(),notes:$('notes').value.trim(),handled:h,handledAt:h?(old?.handledAt||now):null,createdAt:old?.createdAt||now,updatedAt:now};if(!valid(r)){alert('請檢查資料，其他地區銀行必須填寫名稱。');return}if(commit(old?records.map(x=>x.id===old.id?r:x):[...records,r]))$('editor').close()};
-document.addEventListener('click',e=>{let b=e.target.closest('button');if(!b)return;if(b.dataset.day){selected=b.dataset.day;render()}if(b.dataset.edit)open(b.dataset.edit);if(b.dataset.delete){let r=records.find(r=>r.id===b.dataset.delete);if(r&&confirm(`刪除 ${name(r)} · ${r.currency} ${money(r.amount)} · ${r.endDate}？此操作無法直接復原。`))commit(records.filter(x=>x.id!==r.id))}});document.addEventListener('change',e=>{let id=e.target.dataset.check;if(id){let h=e.target.checked,now=new Date().toISOString();if(!commit(records.map(r=>r.id===id?{...r,handled:h,handledAt:h?now:null,updatedAt:now}:r)))render()}});
-function shift(n){let d=new Date(view.getFullYear(),view.getMonth()+n,1);if(d.getFullYear()<1900||d.getFullYear()>9999)return;view=d;selected=null;render()}$('prev').onclick=()=>shift(-1);$('next').onclick=()=>shift(1);$('today').onclick=()=>{view=new Date(new Date().getFullYear(),new Date().getMonth(),1);selected=today();render()};$('search').oninput=render;$('filter').onchange=render;
-$('export').onclick=()=>{if(blocked){alert('本地資料未讀取成功，不能匯出。');return}let blob=new Blob([JSON.stringify({schemaVersion:1,exportedAt:new Date().toISOString(),records},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='定期備份_'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};$('import').onclick=()=>$('file').click();$('file').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{if(f.size>5*1024*1024)throw Error('檔案超過 5MB');let d=JSON.parse(await f.text());if(d.schemaVersion!==1||!validList(d.records))throw Error('備份格式不正確');if(confirm(`匯入 ${d.records.length} 筆並取代目前 ${records.length} 筆資料？請先備份。`)){let before=blocked;blocked=false;if(!commit(d.records))blocked=before;render()}}catch(err){alert('匯入失敗：'+err.message)}finally{e.target.value=''}};
-window.addEventListener('storage',e=>{if(e.key!==KEY)return;try{let a=JSON.parse(e.newValue||'[]');if(!validList(a))throw Error();records=a;revision++;updateCloud();scheduleDue();if($('editor').open){$('editor').close();msg('另一分頁已更新資料，請重新開啟編輯。')}render()}catch{blocked=true;msg('另一分頁的資料無法讀取，已暫停儲存。');render()}});let last=today();setInterval(()=>{if(today()!==last){last=today();render()}},30000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)render()});render();
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>定期存款管理</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #10141c;
+        color: #edf2fa;
+        font: 15px/1.6 system-ui, sans-serif;
+      }
+      main {
+        max-width: 1080px;
+        margin: auto;
+        padding: 20px;
+      }
+      h1 {
+        font-size: 25px;
+      }
+      h2 {
+        font-size: 19px;
+      }
+      section,
+      .stat {
+        background: #1a2230;
+        border: 1px solid #334057;
+        border-radius: 14px;
+        padding: 16px;
+        margin: 16px 0;
+      }
+      .row,
+      .actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+      }
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+        border: 1px solid #45536b;
+        border-radius: 8px;
+        background: #101824;
+        color: #edf2fa;
+        padding: 9px;
+      }
+      button {
+        cursor: pointer;
+        background: #28354a;
+      }
+      .primary {
+        background: #f3c96b;
+        color: #10141c;
+      }
+      input:not([type="checkbox"]),
+      textarea,
+      select {
+        width: 100%;
+      }
+      input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        accent-color: #8addb4;
+      }
+      .muted,
+      small {
+        color: #a6b2c5;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+      .stat {
+        margin: 0;
+      }
+      .stat strong {
+        display: block;
+        color: #f3c96b;
+        font-size: 22px;
+      }
+      .week,
+      .calendar {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 6px;
+      }
+      .week {
+        text-align: center;
+        color: #a6b2c5;
+        margin: 16px 0 8px;
+      }
+      .day {
+        min-height: 100px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+        padding: 7px;
+      }
+      .blank {
+        opacity: 0.25;
+      }
+      .today {
+        border: 2px solid #f3c96b;
+      }
+      .selected {
+        background: #304059;
+      }
+      .mark {
+        font-size: 12px;
+        color: #f3c96b;
+        overflow-wrap: anywhere;
+      }
+      .red {
+        color: #ff9984;
+      }
+      .green {
+        color: #8addb4;
+      }
+      .entry {
+        padding: 14px 0;
+        border-bottom: 1px solid #334057;
+      }
+      .closed {
+        opacity: 0.65;
+      }
+      .check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      dialog {
+        background: #1a2230;
+        color: #edf2fa;
+        border: 1px solid #45536b;
+        border-radius: 14px;
+        width: min(640px, 94vw);
+        max-height: 92vh;
+      }
+      dialog::backdrop {
+        background: #000a;
+      }
+      .fields {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin: 15px 0;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .wide {
+        grid-column: 1 / -1;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      .preview {
+        background: #101824;
+        padding: 12px;
+        border-radius: 8px;
+        color: #f3c96b;
+      }
+      .empty {
+        color: #a6b2c5;
+        padding: 16px 0;
+      }
+      #message {
+        background: #482c23;
+        padding: 12px;
+        border-radius: 8px;
+      }
+      .filters {
+        display: flex;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .filters input {
+        flex: 1;
+      }
+      .filters select {
+        width: auto;
+      }
+      @media (max-width: 600px) {
+        main {
+          padding: 12px;
+        }
+        day {
+          min-height: 90px;
+          padding: 4px;
+        }
+        .mark {
+          font-size: 11px;
+        }
+        .stat {
+          padding: 9px;
+          font-size: 12px;
+        }
+        .stat strong {
+          font-size: 18px;
+        }
+        section {
+          padding: 12px;
+        }
+      }
+      .dateparts {
+        display: grid;
+        grid-template-columns: 1.1fr 1fr 1fr;
+        gap: 4px;
+      }
+      .dateparts > * {
+        min-width: 0;
+        padding: 8px 4px;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      #dueDialog {
+        max-width: 650px;
+      }
+      #dueItems {
+        max-height: 55vh;
+        overflow: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="row">
+        <div>
+          <h1>定期存款管理</h1>
+          <p class="muted">定期到期提醒 · Google Sheets 手動同步</p>
+        </div>
+        <button id="add" class="primary">＋ 新增定期</button>
+      </div>
 
-function populateDays(k,desired){const y=Number($(k+'Y').value),m=Number($(k+'M').value),d=desired??$(k+'D').value,n=y>=1900&&y<=9999&&m?new Date(Date.UTC(y,m,0)).getUTCDate():31;$(k+'D').innerHTML='<option value="">日</option>'+Array.from({length:n},(_,i)=>`<option value="${String(i+1).padStart(2,'0')}">${i+1}日</option>`).join('');$(k+'D').value=Number(d)<=n?d:''}
-function setDateParts(k,v){let a=(v||'').split('-');$(k+'Y').value=a[0]||'';$(k+'M').value=a[1]||'';populateDays(k,a[2]||'')}
-function syncDates(){for(const k of ['start','end']){let y=$(k+'Y'),m=$(k+'M'),d=$(k+'D');y.value=y.value.replace(/\D/g,'').slice(0,4);populateDays(k);$(k).value=y.value&&m.value&&d.value?`${y.value}-${m.value}-${d.value}`:'';y.setCustomValidity(y.value&&(Number(y.value)<1900||Number(y.value)>9999)?'年份須為1900至9999':'');d.setCustomValidity($(k).value&&!Number.isFinite(dt($(k).value))?'日期無效':'')}}
-for(const k of ['start','end'])$(k+'Y').addEventListener('input',()=>{let el=$(k+'Y');el.value=el.value.replace(/\D/g,'').slice(0,4);if(el.value.length===4)$(k+'M').focus()});
-const API='https://script.google.com/macros/s/AKfycbxfhklqwH-B3zRBAgVrXq8aARynfNvYGfg9B8UK5qYN0kuL2O5iAtqzSslqVONOcPkc/exec';
-let cloud=null,busy=false,note='雲端正在核對；目前使用本地資料';
-function canon(x){if(Array.isArray(x))return x.map(canon);if(x&&typeof x==='object')return Object.fromEntries(Object.keys(x).sort().map(k=>[k,canon(x[k])]));return x}
-const sig=a=>JSON.stringify(canon([...a].sort((a,b)=>a.id.localeCompare(b.id))));
-function updateCloud(){if(!$('cloudStatus'))return;$('cloudStatus').textContent=note+(cloud===null?'':` · 本地${records.length}筆／雲端${cloud.length}筆 · ${sig(records)===sig(cloud)?'資料一致':'資料不同／尚未同步'}`);$('cloudRead').disabled=busy;$('cloudUse').disabled=busy||cloud===null||blocked;$('cloudUpload').disabled=busy||cloud===null||blocked}
-async function getCloud(){const c=new AbortController(),t=setTimeout(()=>c.abort(),25000);try{let r=await fetch(API+'?action=fixed_deposits&_='+Date.now()+'-'+Math.random(),{cache:'no-store',credentials:'omit',signal:c.signal});if(!r.ok)throw Error('HTTP '+r.status);let j=await r.json();if(j.status!=='success')throw Error(j.message||'後端錯誤');if(!Array.isArray(j.data))throw Error('定期 data 必須是陣列，請確認部署已更新');for(let i=0;i<j.data.length;i++)if(!valid(j.data[i]))throw Error('第'+(i+1)+'筆資料無效，請檢查ID、本金、利率、日期及已處理欄位');if(!validList(j.data))throw Error('記錄ID重複');return j.data}finally{clearTimeout(t)}}
-async function readCloud(initial=false){if(busy)return;busy=true;note='正在讀取雲端；保留本地';updateCloud();let rev=revision;try{cloud=await getCloud();note='雲端讀取成功';if(initial&&!blocked&&!records.length&&cloud.length&&rev===revision&&!$('editor').open&&!$('dueDialog').open){if(commit(JSON.parse(JSON.stringify(cloud))))note='已載入雲端資料'}if(sig(records)!==sig(cloud))note='雲端與本地不同，保留本地，請選擇資料來源'}catch(e){cloud=null;note='雲端讀取失敗，保留本地；禁止上傳：'+e.message}finally{busy=false;updateCloud();scheduleDue()}}
-$('cloudRead').onclick=()=>readCloud();$('cloudUse').onclick=()=>{if(cloud===null||busy)return;if($('editor').open||$('dueDialog').open){alert('請先關閉正在操作的視窗');return}if(confirm(`以雲端${cloud.length}筆取代本地${records.length}筆？請先備份未同步修改。`)){if(commit(JSON.parse(JSON.stringify(cloud)))){note='已採用雲端資料';updateCloud()}}};
-$('cloudUpload').onclick=async()=>{if(busy||blocked||cloud===null)return;if($('editor').open||$('dueDialog').open){alert('請先保存或關閉彈窗');return}const snapshot=JSON.parse(JSON.stringify(records)),reviewed=sig(cloud);if(!validList(snapshot))return;if(!confirm(`上傳本地${snapshot.length}筆，取代雲端全部${cloud.length}筆定期？不修改股票。請先備份。`))return;if(!snapshot.length&&!confirm('確定清空雲端定期清單？'))return;busy=true;note='上傳前核對';updateCloud();try{let fresh=await getCloud();if(sig(fresh)!==reviewed){cloud=fresh;throw Error('雲端已變更，取消本次上傳，請重新核對')}const c=new AbortController(),t=setTimeout(()=>c.abort(),25000);note='請求送出中，尚未確認';updateCloud();try{await fetch(API+'?action=fixed_deposits',{method:'POST',mode:'no-cors',credentials:'omit',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({type:'fixed_deposits',records:snapshot}),signal:c.signal})}finally{clearTimeout(t)}let ok=false;for(let i=0;i<5;i++){await new Promise(r=>setTimeout(r,1500));cloud=await getCloud();if(sig(cloud)===sig(snapshot)){ok=true;break}}if(!ok)throw Error('回讀不一致，結果未確認，請勿連續重送');note=sig(records)===sig(snapshot)?'已回讀核對，確認同步':'上傳快照已確認，後續本地修改未同步'}catch(e){note='未確認同步成功：'+e.message}finally{busy=false;updateCloud();scheduleDue()}};
-const seenDue=new Set();let dueTimer;
-function dueKey(r){return today()+'|'+r.id+'|'+r.endDate}
-function dueRecords(){return records.filter(r=>!r.handled&&r.endDate<=today()).sort((a,b)=>a.endDate.localeCompare(b.endDate))}
-function scheduleDue(){clearTimeout(dueTimer);dueTimer=setTimeout(()=>checkDue(false),400)}
-function checkDue(force=false){if(document.hidden||$('editor').open||$('dueDialog').open||blocked)return;const a=dueRecords();if(!a.length){if(force)alert('目前沒有已到期未處理的定期。');return}if(!force&&!a.some(r=>!seenDue.has(dueKey(r))))return;$('dueSummary').textContent=`有 ${a.length} 筆定期已到期，尚未處理`;$('dueSource').textContent=cloud!==null&&sig(records)===sig(cloud)?'目前資料與最近讀取的雲端一致。':'提醒依據目前本地資料；雲端可能尚未核對或與本地不同。';$('dueItems').innerHTML=a.map(r=>{let n=-days(today(),r.endDate);return `<article class="entry"><div>${esc(name(r))} · ${esc(r.currency)} ${money(r.amount)}</div><p class="muted">到期日期：${esc(r.endDate)}<br><span class="red">${n===0?'今日到期':'已到期 '+n+' 天'}</span><br>預計利息：${esc(r.currency)} ${money(interest(r))}</p><label class="check"><input type="checkbox" data-due="${esc(r.id)}">已處理</label></article>`}).join('');a.forEach(r=>seenDue.add(dueKey(r)));$('dueDialog').showModal()}
-$('showDue').onclick=()=>checkDue(true);$('dueLater').onclick=()=>$('dueDialog').close();$('dueSave').onclick=()=>{const ids=new Set(Array.from($('dueItems').querySelectorAll('input:checked')).map(el=>el.dataset.due));if(!ids.size){$('dueDialog').close();return}const now=new Date().toISOString();if(commit(records.map(r=>ids.has(r.id)?{...r,handled:true,handledAt:now,updatedAt:now}:r))){$('dueDialog').close();msg('處理狀態已保存本地；需按「上傳至 Google Sheets」才同步到其他裝置。')}};
-$('editor').addEventListener('close',scheduleDue);document.addEventListener('visibilitychange',()=>{if(!document.hidden)scheduleDue()});setInterval(scheduleDue,30000);updateCloud();readCloud(true);scheduleDue();
-</script></html>
+      <p id="message" hidden role="alert"></p>
+
+      <section>
+        <h2>Google Sheets 同步</h2>
+        <p id="cloudStatus" role="status">等待讀取</p>
+        <div class="actions">
+          <button id="cloudRead">重新讀取雲端</button>
+          <button id="cloudUse" disabled>以雲端取代本地</button>
+          <button id="cloudUpload">上傳至 Google Sheets</button>
+          <button id="showDue">查看到期提醒</button>
+        </div>
+        <p class="muted">
+          <small>只處理 fixed_deposits。修改先存本地，確認上傳才取代雲端定期清單。請先備份，避免多裝置同時上傳。</small>
+        </p>
+      </section>
+
+      <div class="stats">
+        <div class="stat">
+          所選月份定期到期<strong id="count"></strong>
+        </div>
+        <div class="stat">
+          所選月份到期本金<div id="totals"></div>
+        </div>
+        <div class="stat">
+          已到期未處理<strong id="pendingCount"></strong>
+        </div>
+      </div>
+
+      <section>
+        <div class="row">
+          <h2 id="month"></h2>
+          <div class="actions">
+            <button id="prev">‹</button>
+            <button id="today">本月</button>
+            <button id="next">›</button>
+          </div>
+        </div>
+        <div class="week">
+          <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+        </div>
+        <div class="calendar" id="calendar"></div>
+        <p class="muted">
+          <small>$ 定期到期：未處理；橙紅色：已到期；✓ 定期到期：已處理。點日期查看記錄。</small>
+        </p>
+        <div id="dayList"></div>
+      </section>
+
+      <section>
+        <h2>已到期・待處理</h2>
+        <div id="pending"></div>
+      </section>
+
+      <section>
+        <div class="row">
+          <h2>全部定期</h2>
+          <span id="allCount"></span>
+        </div>
+        <div class="filters">
+          <input id="search" placeholder="搜尋銀行、貨幣、地區、備註">
+          <select id="filter">
+            <option value="all">全部狀態</option>
+            <option value="open">未處理</option>
+            <option value="done">已處理</option>
+          </select>
+        </div>
+        <div id="all"></div>
+      </section>
+
+      <section>
+        <h2>本地備份</h2>
+        <p class="muted">
+          資料先保存在目前瀏覽器，確認上傳後才同步。請定期備份；更換装置、瀏覽器、檔案位置或清除網站資料可能無法讀取原資料。JSON 備份包含未加密的財務資料。
+        </p>
+        <div class="actions">
+          <button id="export">匯出 JSON 備份</button>
+          <button id="import">匯入備份</button>
+          <input type="file" id="file" accept=".json,application/json" hidden>
+        </div>
+        <p class="muted">
+          <small>只有頁內提示，不會發送手機背景通知，雲端上傳僅修改定期資料，不修改股票。</small>
+        </p>
+      </section>
+    </main>
+
+    <!-- 編輯/新增視窗 -->
+    <dialog id="editor">
+      <form id="form">
+        <div class="row">
+          <h2 id="formTitle"></h2>
+          <button id="close" type="button">關閉</button>
+        </div>
+        <div class="fields">
+          <label class="field">銀行 *
+            <select id="bank">
+              <option>大豐銀行</option>
+              <option>華僑銀行</option>
+              <option>滙業銀行</option>
+              <option>中國工商銀行</option>
+              <option>澳門國際銀行</option>
+              <option>澳門商業銀行</option>
+              <option>澳門華人銀行</option>
+              <option>立橋銀行</option>
+              <option>大西洋銀行</option>
+              <option>螞蟻銀行</option>
+              <option>澳門發展銀行</option>
+              <option>中國銀行</option>
+              <option>其他地區銀行</option>
+            </select>
+          </label>
+          <label class="field">貨幣 *
+            <select id="currency">
+              <option>HKD</option>
+              <option>USD</option>
+              <option>CNY</option>
+              <option>EUR</option>
+              <option>GBP</option>
+              <option>JPY</option>
+              <option>AUD</option>
+              <option>CAD</option>
+              <option>SGD</option>
+              <option>TWD</option>
+            </select>
+          </label>
+          <label class="field wide" id="otherField" hidden>其他地區銀行名稱 *
+            <input id="otherBank" maxlength="100" placeholder="請輸入銀行名稱">
+          </label>
+          <label class="field">本金 *
+            <input type="number" id="amount" required min="0.01" step="0.01">
+          </label>
+          <label class="field">年利率 (%) *
+            <input type="number" id="rate" required min="0" max="100" step="any" placeholder="3 代表 3%">
+          </label>
+          <div class="field">開始日期 *
+            <div class="dateparts">
+              <input id="startY" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="年" required aria-label="開始日期年">
+              <select id="startM" required aria-label="開始日期月">
+                <option value="">月</option>
+                <option value="01">1月</option>
+                <option value="02">2月</option>
+                <option value="03">3月</option>
+                <option value="04">4月</option>
+                <option value="05">5月</option>
+                <option value="06">6月</option>
+                <option value="07">7月</option>
+                <option value="08">8月</option>
+                <option value="09">9月</option>
+                <option value="10">10月</option>
+                <option value="11">11月</option>
+                <option value="12">12月</option>
+              </select>
+              <select id="startD" required aria-label="開始日期日">
+                <option value="">日</option>
+              </select>
+            </div>
+            <input id="start" type="hidden">
+          </div>
+          <div class="field">到期日期 *
+            <div class="dateparts">
+              <input id="endY" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="年" required aria-label="到期日期年">
+              <select id="endM" required aria-label="到期日期月">
+                <option value="">月</option>
+                <option value="01">1月</option>
+                <option value="02">2月</option>
+                <option value="03">3月</option>
+                <option value="04">4月</option>
+                <option value="05">5月</option>
+                <option value="06">6月</option>
+                <option value="07">7月</option>
+                <option value="08">8月</option>
+                <option value="09">9月</option>
+                <option value="10">10月</option>
+                <option value="11">11月</option>
+                <option value="12">12月</option>
+              </select>
+              <select id="endD" required aria-label="到期日期日">
+                <option value="">日</option>
+              </select>
+            </div>
+            <input id="end" type="hidden">
+          </div>
+          <label class="field">地區
+            <input id="region" maxlength="100" value="澳門">
+          </label>
+          <label class="check">
+            <input type="checkbox" id="handled">已處理
+          </label>
+          <label class="field wide">備註
+            <textarea id="notes" maxlength="2000"></textarea>
+          </label>
+          <div class="preview wide" id="preview"></div>
+        </div>
+        <p class="muted">
+          <small>利息＝本金 × 年利率 ×（到期日 − 開始日）÷ 365；不額外加一天。</small>
+        </p>
+        <div class="actions">
+          <button id="cancel" type="button">取消</button>
+          <button class="primary" type="submit">儲存至本地</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- 到期提醒視窗 -->
+    <dialog id="dueDialog" aria-labelledby="dueTitle">
+      <h2 id="dueTitle">定期到期提醒</h2>
+      <p id="dueSummary"></p>
+      <p class="muted" id="dueSource"></p>
+      <div id="dueItems"></div>
+      <p class="muted">
+        <small>關閉不代表已處理。勾選後按保存只寫本地，需另按上傳才同步其他裝置。</small>
+      </p>
+      <div class="actions">
+        <button id="dueLater">稍後處理</button>
+        <button id="dueSave" class="primary">保存處理狀態</button>
+      </div>
+    </dialog>
+
+    <script>
+      'use strict';
+
+      let revision = 0;
+      const BANKS = [
+        "大豐銀行", "華僑銀行", "滙業銀行", "中國工商銀行", 
+        "澳門國際銀行", "澳門商業銀行", "澳門華人銀行", "立橋銀行", 
+        "大西洋銀行", "螞蟻銀行", "澳門發展銀行", "中國銀行", "其他地區銀行"
+      ];
+      const KEY = 'fixed_deposits_local_v1';
+      const $ = id => document.getElementById(id);
+      const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+      const money = n => new Intl.NumberFormat('zh-HK', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(n);
+
+      function today() {
+        let d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+
+      function dt(s) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return NaN;
+        let [y, m, d] = s.split('-').map(Number);
+        let n = Date.UTC(y, m - 1, d);
+        let v = new Date(n);
+        return y >= 1900 && y <= 9999 && v.getUTCFullYear() === y && v.getUTCMonth() === m - 1 && v.getUTCDate() === d ? n : NaN;
+      }
+
+      const days = (a, b) => (dt(b) - dt(a)) / 86400000;
+      const interest = r => r.amount * r.rate * days(r.startDate, r.endDate) / 365;
+      const name = r => r.bank === '其他地區銀行' ? (r.otherBank || r.bank) : r.bank;
+
+      function valid(r) {
+        return r &&
+          typeof r.id === 'string' && r.id &&
+          typeof r.bank === 'string' && r.bank.trim() &&
+          (r.bank !== '其他地區銀行' || (typeof r.otherBank === 'string' && r.otherBank.trim())) &&
+          typeof r.currency === 'string' && /^[A-Z]{3}$/.test(r.currency) &&
+          Number.isFinite(r.amount) && r.amount > 0 &&
+          Number.isFinite(r.rate) && r.rate >= 0 && r.rate <= 1 &&
+          Number.isFinite(days(r.startDate, r.endDate)) && days(r.startDate, r.endDate) >= 0 &&
+          typeof r.handled === 'boolean' &&
+          Number.isFinite(interest(r));
+      }
+
+      function validList(a) {
+        return Array.isArray(a) && a.every(valid) && new Set(a.map(r => r.id)).size === a.length;
+      }
+
+      function msg(s) {
+        $('message').textContent = s;
+        $('message').hidden = !s;
+      }
+
+      let records = [];
+      let blocked = false;
+      let view = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      let selected = today();
+      let editing = null;
+
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (raw) {
+          records = JSON.parse(raw);
+          if (!validList(records)) throw Error('格式不正確');
+        }
+      } catch (e) {
+        records = [];
+        blocked = true;
+        msg('無法讀取本地資料；為避免覆寫，已暫停儲存。請匯入有效備份或檢查儲存權限。' + e.message);
+      }
+
+      function commit(a) {
+        if (blocked) {
+          msg('資料尚未成功讀取，請先匯入有效備份。');
+          return false;
+        }
+        try {
+          localStorage.setItem(KEY, JSON.stringify(a));
+          records = a;
+          revision++;
+          msg('');
+          render();
+          updateCloud();
+          scheduleDue();
+          return true;
+        } catch (e) {
+          msg('儲存失敗，修改未保存：' + e.message);
+          return false;
+        }
+      }
+
+      function entry(r) {
+        let n = days(today(), r.endDate);
+        let state = r.handled ? '✓ 已處理' : n <= 0 ? '到期待處理' : '未到期';
+        return `
+          <article class="entry ${r.handled ? 'closed' : ''}">
+            <div class="row">
+              <span>${esc(name(r))} · ${esc(r.currency)} ${money(r.amount)}</span>
+              <span class="${r.handled ? 'green' : n <= 0 ? 'red' : 'mark'}">${state}</span>
+            </div>
+            <p class="muted">
+              ${esc(r.startDate)} → ${esc(r.endDate)} · ${n > 0 ? '距到期 ' + n + ' 天' : n === 0 ? '今日到期' : '已到期 ' + (-n) + ' 天'}<br>
+              年利率 ${Number((r.rate * 100).toFixed(6))}% · 預計利息 ${esc(r.currency)} ${money(interest(r))}
+              ${r.region ? '<br>地區：' + esc(r.region) : ''}
+              ${r.notes ? '<br>備註：' + esc(r.notes) : ''}
+            </p>
+            <div class="row">
+              <label class="check">
+                <input type="checkbox" data-check="${esc(r.id)}" ${r.handled ? 'checked' : ''}>已處理
+              </label>
+              <div class="actions">
+                <button data-edit="${esc(r.id)}">編輯</button>
+                <button class="red" data-delete="${esc(r.id)}">刪除</button>
+              </div>
+            </div>
+          </article>
+        `;
+      }
+
+      function listing(a) {
+        return a.length
+          ? [...a].sort((a, b) => a.endDate.localeCompare(b.endDate)).map(entry).join('')
+          : '<div class="empty">沒有符合條件的定期記錄。</div>';
+      }
+
+      function render() {
+        let y = view.getFullYear();
+        let m = view.getMonth();
+        let prefix = `${y}-${String(m + 1).padStart(2, '0')}`;
+        let rs = records.filter(r => r.endDate.startsWith(prefix));
+        let pending = records.filter(r => !r.handled && r.endDate <= today());
+
+        $('month').textContent = `${y} 年 ${m + 1} 月`;
+        $('count').textContent = rs.length + ' 筆';
+        $('pendingCount').textContent = pending.length + ' 筆';
+
+        let totals = {};
+        rs.forEach(r => totals[r.currency] = (totals[r.currency] || 0) + r.amount);
+        $('totals').innerHTML = Object.keys(totals).sort().map(c => `
+          <div class="mark">${esc(c)} ${money(totals[c])}</div>
+        `).join('') || '—';
+
+        let out = '';
+        let offset = new Date(y, m, 1).getDay();
+        let n = new Date(y, m + 1, 0).getDate();
+
+        for (let i = 0; i < offset; i++) out += '<div class="day blank"></div>';
+
+        for (let d = 1; d <= n; d++) {
+          let day = `${prefix}-${String(d).padStart(2, '0')}`;
+          let a = rs.filter(r => r.endDate === day);
+          let open = a.filter(r => !r.handled).length;
+          let done = a.length - open;
+
+          out += `
+            <button class="day ${day === today() ? 'today' : ''} ${day === selected ? 'selected' : ''}" 
+                    data-day="${day}" aria-label="${day} 定期到期 ${a.length}筆">
+              <span>${d}</span>
+              ${open ? `<span class="mark ${day <= today() ? 'red' : ''}">$ 定期到期 ${open}筆</span>` : ''}
+              ${done ? `<span class="mark green">✓ 定期到期 ${done}筆</span>` : ''}
+            </button>
+          `;
+        }
+
+        for (let i = (offset + n) % 7; i > 0 && i < 7; i++) out += '<div class="day blank"></div>';
+
+        $('calendar').innerHTML = out;
+        $('dayList').innerHTML = selected?.startsWith(prefix)
+          ? `<h2>${esc(selected)}・定期到期</h2>` + listing(records.filter(r => r.endDate === selected))
+          : '';
+        $('pending').innerHTML = listing(pending);
+
+        let q = $('search').value.trim().toLowerCase();
+        let f = $('filter').value;
+        $('all').innerHTML = listing(
+          records.filter(r => (f === 'all' || (f === 'done' ? r.handled : !r.handled)) &&
+            [name(r), r.currency, r.region, r.notes].join(' ').toLowerCase().includes(q))
+        );
+        $('allCount').textContent = records.length + ' 筆';
+        $('add').disabled = blocked;
+      }
+
+      function bankFields() {
+        let other = $('bank').value === '其他地區銀行';
+        $('otherField').hidden = !other;
+        $('otherBank').required = other;
+      }
+
+      function preview() {
+        syncDates();
+        bankFields();
+        let n = days($('start').value, $('end').value);
+        let a = Number($('amount').value);
+        let rate = Number($('rate').value) / 100;
+        let v = a * rate * n / 365;
+
+        $('endD').setCustomValidity(n < 0 ? '到期日期不能早於開始日期。' : '');
+        $('preview').textContent = $('amount').value &&$('rate').value && a > 0 && rate >= 0 && rate <= 1 && n >= 0 && Number.isFinite(v)
+          ? `存款天數 ${n} 天 · 預計利息 ${$('currency').value} ${money(v)} · 本息合計 ${money(a + v)}`
+          : '填寫本金、利率及日期後顯示預計利息。';
+      }
+
+      function open(id = null) {
+        editing = id;
+        let r = records.find(r => r.id === id);
+        $('form').reset();$('formTitle').textContent = r ? '編輯定期' : '新增定期';
+        let known = r && BANKS.includes(r.bank);
+        $('bank').value = r ? (known ? r.bank : '其他地區銀行') : BANKS[0];
+        $('otherBank').value = r ? (known ? (r.otherBank || '') : r.bank) : '';
+
+        if (r && !Array.from($('currency').options).some(o => o.value === r.currency)) {$('currency').add(new Option(r.currency, r.currency));
+        }
+
+        $('currency').value = r?.currency \vert{}\vert{} 'HKD';$('amount').value = r?.amount ?? '';
+        $('rate').value = r ? Number((r.rate * 100).toFixed(10)) : '';
+        $('start').value = r?.startDate || today();
+        $('end').value = r?.endDate \vert{}\vert{} '';$('region').value = r ? (r.region || '') : '澳門';
+        $('notes').value = r?.notes \vert{}\vert{} '';$('handled').checked = r?.handled || false;
+
+        setDateParts('start', $('start').value);
+        setDateParts('end', $('end').value);
+        preview();
+        $('editor').showModal();
+      }
+
+      $('add').onclick = () => open();
+      $('close').onclick =$('cancel').onclick = () => $('editor').close();$('form').oninput = preview;
+      $('form').onchange = preview;
+      $('bank').onchange = preview;
+
+      $('form').onsubmit = e => {
+        e.preventDefault();
+        preview();
+        if (!$('form').reportValidity()) return;
+
+        let old = records.find(r => r.id === editing);
+        let now = new Date().toISOString();
+        let h = $('handled').checked;
+        let r = {
+          id: old?.id || (globalThis.crypto?.randomUUID?.() || Date.now().toString(36) + '-' + Math.random().toString(36).slice(2)),
+          bank: $('bank').value,
+          otherBank: $('bank').value === '其他地區銀行' ? $('otherBank').value.trim() : '',
+          currency: $('currency').value,
+          amount: Number($('amount').value),
+          rate: Number($('rate').value) / 100,
+          startDate: $('start').value,
+          endDate: $('end').value,
+          region: $('region').value.trim(),
+          notes: $('notes').value.trim(),
+          handled: h,
+          handledAt: h ? (old?.handledAt || now) : null,
+          createdAt: old?.createdAt || now,
+          updatedAt: now
+        };
+
+        if (!valid(r)) {
+          alert('請檢查資料，其他地區銀行必須填寫名稱。');
+          return;
+        }
+
+        if (commit(old ? records.map(x => x.id === old.id ? r : x) : [...records, r])) {
+          $('editor').close();
+        }
+      };
+
+      document.addEventListener('click', e => {
+        let b = e.target.closest('button');
+        if (!b) return;
+        if (b.dataset.day) {
+          selected = b.dataset.day;
+          render();
+        }
+        if (b.dataset.edit) open(b.dataset.edit);
+        if (b.dataset.delete) {
+          let r = records.find(r => r.id === b.dataset.delete);
+          if (r && confirm(`刪除 ${name(r)} · ${r.currency} ${money(r.amount)} · ${r.endDate}？此操作無法直接復原。`)) {
+            commit(records.filter(x => x.id !== r.id));
+          }
+        }
+      });
+
+      document.addEventListener('change', e => {
+        let id = e.target.dataset.check;
+        if (id) {
+          let h = e.target.checked;
+          let now = new Date().toISOString();
+          if (!commit(records.map(r => r.id === id ? { ...r, handled: h, handledAt: h ? now : null, updatedAt: now } : r))) {
+            render();
+          }
+        }
+      });
+
+      function shift(n) {
+        let d = new Date(view.getFullYear(), view.getMonth() + n, 1);
+        if (d.getFullYear() < 1900 || d.getFullYear() > 9999) return;
+        view = d;
+        selected = null;
+        render();
+      }
+
+      $('prev').onclick = () => shift(-1);$('next').onclick = () => shift(1);
+      $('today').onclick = () => {         view = new Date(new Date().getFullYear(), new Date().getMonth(), 1);         selected = today();         render();       };$('search').oninput = render;
+      $('filter').onchange = render;
+
+      $('export').onclick = () => {
+        if (blocked) {
+          alert('本地資料未讀取成功，不能匯出。');
+          return;
+        }
+        let blob = new Blob([JSON.stringify({ schemaVersion: 1, exportedAt: new Date().toISOString(), records }, null, 2)], {
+          type: 'application/json'
+        });
+        let url = URL.createObjectURL(blob);
+        let a = document.createElement('a');
+        a.href = url;
+        a.download = '定期備份_' + today() + '.json';
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      };
+
+      $('import').onclick = () => $('file').click();$('file').onchange = async e => {
+        let f = e.target.files[0];
+        if (!f) return;
+        try {
+          if (f.size > 5 * 1024 * 1024) throw Error('檔案超過 5MB');
+          let d = JSON.parse(await f.text());
+          if (d.schemaVersion !== 1 || !validList(d.records)) throw Error('備份格式不正確');
+          if (confirm(`匯入 ${d.records.length} 筆並取代目前 ${records.length} 筆資料？請先備份。`)) {
+            let before = blocked;
+            blocked = false;
+            if (!commit(d.records)) blocked = before;
+            render();
+          }
+        } catch (err) {
+          alert('匯入失敗：' + err.message);
+        } finally {
+          e.target.value = '';
+        }
+      };
+
+      window.addEventListener('storage', e => {
+        if (e.key !== KEY) return;
+        try {
+          let a = JSON.parse(e.newValue || '[]');
+          if (!validList(a)) throw Error();
+          records = a;
+          revision++;
+          updateCloud();
+          scheduleDue();
+          if ($('editor').open) {$('editor').close();
+            msg('另一分頁已更新資料，請重新開啟編輯。');
+          }
+          render();
+        } catch {
+          blocked = true;
+          msg('另一分頁的資料無法讀取，已暫停儲存。');
+          render();
+        }
+      });
+
+      let last = today();
+      setInterval(() => {
+        if (today() !== last) {
+          last = today();
+          render();
+        }
+      }, 30000);
+
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) render();
+      });
+
+      render();
+
+      function populateDays(k, desired) {
+        const y = Number($(k + 'Y').value);
+        const m = Number($(k + 'M').value);
+        const d = desired ?? $(k + 'D').value;
+        const n = y >= 1900 && y <= 9999 && m ? new Date(Date.UTC(y, m, 0)).getUTCDate() : 31;
+
+        $(k + 'D').innerHTML = '<option value="">日</option>' +
+          Array.from({ length: n }, (_, i) => `<option value="${String(i + 1).padStart(2, '0')}">${i + 1}日</option>`).join('');
+        $(k + 'D').value = Number(d) <= n ? d : '';
+      }
+
+      function setDateParts(k, v) {
+        let a = (v || '').split('-');
+        $(k + 'Y').value = a[0] \vert{}\vert{} '';$(k + 'M').value = a[1] || '';
+        populateDays(k, a[2] || '');
+      }
+
+      function syncDates() {
+        for (const k of ['start', 'end']) {
+          let y = $(k + 'Y');
+          let m = $(k + 'M');
+          let d = $(k + 'D');
+          y.value = y.value.replace(/\D/g, '').slice(0, 4);
+          populateDays(k);
+          $(k).value = y.value && m.value && d.value ? `${y.value}-${m.value}-${d.value}` : '';
+          y.setCustomValidity(y.value && (Number(y.value) < 1900 || Number(y.value) > 9999) ? '年份須為1900至9999' : '');
+          d.setCustomValidity($(k).value && !Number.isFinite(dt($(k).value)) ? '日期無效' : '');
+        }
+      }
+
+      for (const k of ['start', 'end']) {
+        $(k + 'Y').addEventListener('input', () => {
+          let el = $(k + 'Y');
+          el.value = el.value.replace(/\D/g, '').slice(0, 4);
+          if (el.value.length === 4) $(k + 'M').focus();
+        });
+      }
+
+      const API = 'https://script.google.com/macros/s/AKfycbxfhklqwH-B3zRBAgVrXq8aARynfNvYGfg9B8UK5qYN0kuL2O5iAtqzSslqVONOcPkc/exec';
+      let cloud = null;
+      let busy = false;
+      let note = '雲端正在核對；目前使用本地資料';
+
+      function canon(x) {
+        if (Array.isArray(x)) return x.map(canon);
+        if (x && typeof x === 'object') {
+          return Object.fromEntries(Object.keys(x).sort().map(k => [k, canon(x[k])]));
+        }
+        return x;
+      }
+
+      const sig = a => JSON.stringify(canon([...a].sort((a, b) => a.id.localeCompare(b.id))));
+
+      function updateCloud() {
+        if (!$('cloudStatus')) return;
+        $('cloudStatus').textContent = note + (cloud === null ? '' : ` · 本地${records.length}筆／雲端${cloud.length}筆 · ${sig(records) === sig(cloud) ? '資料一致' : '資料不同／尚未同步'}`);
+        $('cloudRead').disabled = busy;
+        $('cloudUse').disabled = busy || cloud === null || blocked;
+        $('cloudUpload').disabled = busy || cloud === null || blocked;
+      }
+
+      async function getCloud() {
+        const c = new AbortController();
+        const t = setTimeout(() => c.abort(), 25000);
+        try {
+          let r = await fetch(API + '?action=fixed_deposits&_=' + Date.now() + '-' + Math.random(), {
+            cache: 'no-store',
+            credentials: 'omit',
+            signal: c.signal
+          });
+          if (!r.ok) throw Error('HTTP ' + r.status);
+          let j = await r.json();
+          if (j.status !== 'success') throw Error(j.message || '後端錯誤');
+          if (!Array.isArray(j.data)) throw Error('定期 data 必須是陣列，請確認部署已更新');
+          for (let i = 0; i < j.data.length; i++) {
+            if (!valid(j.data[i])) throw Error('第' + (i + 1) + '筆資料無效，請檢查ID、本金、利率、日期及已處理欄位');
+          }
+          if (!validList(j.data)) throw Error('記錄ID重複');
+          return j.data;
+        } finally {
+          clearTimeout(t);
+        }
+      }
+
+      async function readCloud(initial = false) {
+        if (busy) return;
+        busy = true;
+        note = '正在讀取雲端；保留本地';
+        updateCloud();
+        let rev = revision;
+        try {
+          cloud = await getCloud();
+          note = '雲端讀取成功';
+          if (initial && !blocked && !records.length && cloud.length && rev === revision && !$('editor').open && !$('dueDialog').open) {
+            if (commit(JSON.parse(JSON.stringify(cloud)))) note = '已載入雲端資料';
+          }
+          if (sig(records) !== sig(cloud)) note = '雲端與本地不同，保留本地，請選擇資料來源';
+        } catch (e) {
+          cloud = null;
+          note = '雲端讀取失敗，保留本地；禁止上傳：' + e.message;
+        } finally {
+          busy = false;
+          updateCloud();
+          scheduleDue();
+        }
+      }
+
+      $('cloudRead').onclick = () => readCloud();
+
+      $('cloudUse').onclick = () => {
+        if (cloud === null || busy) return;
+        if ($('editor').open \vert{}\vert{}$('dueDialog').open) {
+          alert('請先關閉正在操作的視窗');
+          return;
+        }
+        if (confirm(`以雲端${cloud.length}筆取代本地${records.length}筆？請先備份未同步修改。`)) {
+          if (commit(JSON.parse(JSON.stringify(cloud)))) {
+            note = '已採用雲端資料';
+            updateCloud();
+          }
+        }
+      };
+
+      $('cloudUpload').onclick = async () => {
+        if (busy || blocked || cloud === null) return;
+        if ($('editor').open \vert{}\vert{}$('dueDialog').open) {
+          alert('請先保存或關閉彈窗');
+          return;
+        }
+        const snapshot = JSON.parse(JSON.stringify(records));
+        const reviewed = sig(cloud);
+        if (!validList(snapshot)) return;
+        if (!confirm(`上傳本地${snapshot.length}筆，取代雲端全部${cloud.length}筆定期？不修改股票。請先備份。`)) return;
+        if (!snapshot.length && !confirm('確定清空雲端定期清單？')) return;
+
+        busy = true;
+        note = '上傳前核對';
+        updateCloud();
+        try {
+          let fresh = await getCloud();
+          if (sig(fresh) !== reviewed) {
+            cloud = fresh;
+            throw Error('雲端已變更，取消本次上傳，請重新核對');
+          }
+          const c = new AbortController();
+          const t = setTimeout(() => c.abort(), 25000);
+          note = '請求送出中，尚未確認';
+          updateCloud();
+          try {
+            await fetch(API + '?action=fixed_deposits', {
+              method: 'POST',
+              mode: 'no-cors',
+              credentials: 'omit',
+              headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+              body: JSON.stringify({ type: 'fixed_deposits', records: snapshot }),
+              signal: c.signal
+            });
+          } finally {
+            clearTimeout(t);
+          }
+          let ok = false;
+          for (let i = 0; i < 5; i++) {
+            await new Promise(r => setTimeout(r, 1500));
+            cloud = await getCloud();
+            if (sig(cloud) === sig(snapshot)) {
+              ok = true;
+              break;
+            }
+          }
+          if (!ok) throw Error('回讀不一致，結果未確認，請勿連續重送');
+          note = sig(records) === sig(snapshot) ? '已回讀核對，確認同步' : '上傳快照已確認，後續本地修改未同步';
+        } catch (e) {
+          note = '未確認同步成功：' + e.message;
+        } finally {
+          busy = false;
+          updateCloud();
+          scheduleDue();
+        }
+      };
+
+      const seenDue = new Set();
+      let dueTimer;
+
+      function dueKey(r) {
+        return today() + '|' + r.id + '|' + r.endDate;
+      }
+
+      function dueRecords() {
+        return records.filter(r => !r.handled && r.endDate <= today()).sort((a, b) => a.endDate.localeCompare(b.endDate));
+      }
+
+      function scheduleDue() {
+        clearTimeout(dueTimer);
+        dueTimer = setTimeout(() => checkDue(false), 400);
+      }
+
+      function checkDue(force = false) {
+        if (document.hidden || $('editor').open \vert{}\vert{}$('dueDialog').open || blocked) return;
+        const a = dueRecords();
+        if (!a.length) {
+          if (force) alert('目前沒有已到期未處理的定期。');
+          return;
+        }
+        if (!force && !a.some(r => !seenDue.has(dueKey(r)))) return;
+        $('dueSummary').textContent = `有 ${a.length} 筆定期已到期，尚未處理`;
+        $('dueSource').textContent = cloud !== null && sig(records) === sig(cloud)
+          ? '目前資料與最近讀取的雲端一致。'
+          : '提醒依據目前本地資料；雲端可能尚未核對或與本地不同。';
+        $('dueItems').innerHTML = a.map(r => {
+          let n = -days(today(), r.endDate);
+          return `
+            <article class="entry">
+              <div>${esc(name(r))} · ${esc(r.currency)} ${money(r.amount)}</div>
+              <p class="muted">
+                到期日期：${esc(r.endDate)}<br>
+                <span class="red">${n === 0 ? '今日到期' : '已到期 ' + n + ' 天'}</span><br>
+                預計利息：${esc(r.currency)} ${money(interest(r))}
+              </p>
+              <label class="check">
+                <input type="checkbox" data-due="${esc(r.id)}">已處理
+              </label>
+            </article>
+          `;
+        }).join('');
+        a.forEach(r => seenDue.add(dueKey(r)));
+        $('dueDialog').showModal();
+      }
+
+      $('showDue').onclick = () => checkDue(true);$('dueLater').onclick = () => $('dueDialog').close();$('dueSave').onclick = () => {
+        const ids = new Set(Array.from($('dueItems').querySelectorAll('input:checked')).map(el => el.dataset.due));
+        if (!ids.size) {
+          $('dueDialog').close();
+          return;
+        }
+        const now = new Date().toISOString();
+        if (commit(records.map(r => ids.has(r.id) ? { ...r, handled: true, handledAt: now, updatedAt: now } : r))) {
+          $('dueDialog').close();
+          msg('處理狀態已保存本地；需按「上傳至 Google Sheets」才同步到其他裝置。');
+        }
+      };
+
+      $('editor').addEventListener('close', scheduleDue);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) scheduleDue();
+      });
+      setInterval(scheduleDue, 30000);
+
+      updateCloud();
+      readCloud(true);
+      scheduleDue();
+    </script>
+  </body>
+</html>
