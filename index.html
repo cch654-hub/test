@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8" />
         <title>Protected Page</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
         <!-- do not cache this page -->
         <meta http-equiv="cache-control" content="max-age=0" />
@@ -172,7 +172,40 @@
                 }
             }
         </style>
-    </head>
+    <style id="password-dark-mode">
+.staticrypt-html {color-scheme:dark;background:#121416;}
+.staticrypt-body {background:#121416;color:#d8dce2;}
+.staticrypt-content {background:#121416;min-height:100%;margin-bottom:0;}
+.staticrypt-page {width:min(360px,100%);padding:8vh 16px 24px;}
+.staticrypt-form {background:#1e2227;padding:32px;border:1px solid #343a42;border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.3);}
+.staticrypt-hr {border-top-color:#343a42;}
+.staticrypt-password-container {background:#14181d;border:1px solid #414853;border-radius:8px;}
+.staticrypt-password-container:focus-within {border-color:#8294aa;box-shadow:0 0 0 2px rgba(130,148,170,.2);}
+.staticrypt-form input[type="password"],.staticrypt-form input[type="text"] {color:#e0e4ea;padding-right:48px;border-radius:8px;caret-color:#e0e4ea;}
+.staticrypt-form input::placeholder {color:#929ba7;opacity:1;}
+.staticrypt-toggle-password-visibility {filter:invert(1);opacity:.65;}
+.staticrypt-form .staticrypt-decrypt-button {background:#3e4b5b;color:#e7ebf0;border:1px solid #536275;border-radius:8px;}
+.staticrypt-form .staticrypt-decrypt-button:hover,.staticrypt-form .staticrypt-decrypt-button:active,.staticrypt-form .staticrypt-decrypt-button:focus {background:#4a596b;filter:none;}
+.staticrypt-form .staticrypt-decrypt-button:focus-visible {outline:2px solid #a0b0c4;outline-offset:3px;}
+.staticrypt-remember input[type="checkbox"] {accent-color:#8294aa;}
+</style>
+<script>
+  // 修復 iOS 鍵盤彈出收起後造成的 50px 向上位移殘留
+  document.addEventListener("DOMContentLoaded", function() {
+    var form = document.getElementById("staticrypt-form");
+    if (form) {
+      form.addEventListener("submit", function() {
+        // 點擊解密時立即收起鍵盤，並強制將滾動條瞬間歸位到 (0, 0)
+        if (document.activeElement) document.activeElement.blur();
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      });
+    }
+  });
+</script>
+</head>
+
 
     <body class="staticrypt-body">
         <div id="staticrypt_loading" class="staticrypt-spinner-container">
